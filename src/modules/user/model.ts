@@ -3,7 +3,7 @@ import z from 'zod';
 import type { ModelType } from '@/lib/util/types';
 
 import { type SchemaSelect, Gender } from '@/lib/db/schema';
-import { toFactoryResults } from '@/lib/util';
+import { toFactoryResults, format } from '@/lib/util';
 import { schema } from '@/lib/util/schema';
 
 function $user() {
@@ -38,12 +38,12 @@ function $user() {
   );
 }
 
-function userProfile() {
+function $userProfile() {
   return z.toZod<SchemaSelect['userProfile']>()(
     z.object(
       {
         gender: z
-          .enum(Gender, `gender should be ${Object.values(Gender)}.`)
+          .enum(Gender, `gender should be ${format(Object.values(Gender))}.`)
           .nullable(),
         phoneNumber: schema.string('phoneNumber').nullable(),
         address: schema.string('address').nullable(),
@@ -58,7 +58,24 @@ function userProfile() {
 }
 
 function user() {
-  return $user().extend({ profile: userProfile().nullish() });
+  return $user().extend({
+    profile: userProfile().nullish(),
+    appointments: z.any().nullish(),
+    invitations: z.any().nullish(),
+    teamMembers: z.any().nullish(),
+    TwoFactor: z.any().nullish(),
+    sessions: z.any().nullish(),
+    accounts: z.any().nullish(),
+    members: z.any().nullish(),
+    doctor: z.any().nullish()
+  });
+}
+
+function userProfile() {
+  return $userProfile().extend({
+    doctor: z.any().nullish(),
+    user: z.any().nullish()
+  });
 }
 
 export const model = toFactoryResults({ userProfile, $user, user });
