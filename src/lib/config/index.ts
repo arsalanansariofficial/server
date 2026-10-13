@@ -1,54 +1,33 @@
 import z from 'zod';
 
-declare module 'bun' {
-  interface Env {
-    NODE_ENV?: 'development' | 'production' | undefined | string | 'test';
-    BETTER_AUTH_ACCEPT_METHODS: ('post' | 'get')[];
-    GITHUB_CLIENT_SECRET?: undefined | string;
-    BETTER_AUTH_COOKIE_CACHE_TIMEOUT: number;
-    BETTER_AUTH_MAX_PASSWORD_LENGTH: number;
-    BETTER_AUTH_MIN_PASSWORD_LENGTH: number;
-    BETTER_AUTH_SESSION_EXPIRES_IN: number;
-    GITHUB_CLIENT_ID?: undefined | string;
-    SESSION_COOKIE_NAME: string;
-    DEFAULT_PAGE_NUMBER: number;
-    BETTER_AUTH_SECRET: string;
-    DEFAULT_PAGE_SIZE: number;
-    APPLICATION_NAME: string;
-    BETTER_AUTH_URL: string;
-    MAX_FILE_SIZE: number;
-    MIN_FILE_SIZE: number;
-    MAX_PAGE_SIZE: number;
-    DATABASE_URL: string;
-    UPLOAD_DIR: string;
-    SMTP_URL: string;
-    BASE_URL: string;
-    PORT: number;
-  }
-}
-
 export const envSchema = z.object(
   {
-    DATABASE_URL: z.union(
-      [
-        z
-          .url('DATABASE_URL should be a valid url.')
-          .nonempty('DATABASE_URL should not be empty.')
-          .trim()
-          .meta({
-            description:
-              'Database connection url, ex: mysql://user:password@localhost:3306/database-name'
-          }),
-        z
-          .string('DATABASE_URL should be a valid string.')
-          .nonempty('DATABASE_URL should not be empty.')
-          .trim()
-          .meta({
-            description: 'Database file, ex: database.sqlite or database.db'
-          })
-      ],
-      'DATABASE_URL should either be a valid url or a valid file name if using file based database.'
-    ),
+    DATABASE_URL: z
+      .union(
+        [
+          z
+            .url('DATABASE_URL should be a valid url.')
+            .nonempty('DATABASE_URL should not be empty.')
+            .trim()
+            .meta({
+              description:
+                'Database connection url, ex: mysql://user:password@localhost:3306/database-name'
+            }),
+          z
+            .string('DATABASE_URL should be a valid string.')
+            .nonempty('DATABASE_URL should not be empty.')
+            .trim()
+            .meta({
+              description: 'Database file, ex: database.sqlite or database.db'
+            })
+        ],
+        'DATABASE_URL should either be a valid url or a valid file name if using file based database.'
+      )
+      .default('server.db')
+      .meta({
+        description:
+          'DATABASE_URL either a valid database server url or filename if using file based database (sqlite), defaults to server.db.'
+      }),
     BETTER_AUTH_SECRET: z
       .string('BETTER_AUTH_SECRET should be a valid string.')
       .nonempty('BETTER_AUTH_SECRET should not be empty.')
@@ -63,38 +42,55 @@ export const envSchema = z.object(
       .string('GITHUB_CLIENT_SECRET should be valid string.')
       .nonempty('GITHUB_CLIENT_SECRET should not be empty.')
       .trim()
-      .optional()
+      .default('example_secret_1234567890abcdef')
       .meta({
         description:
-          'OAuth application password to verify with the GitHub provider, ex: example_secret_1234567890abcdef.'
+          'OAuth application password to verify with the GitHub provider, defaults to example_secret_1234567890abcdef.'
       }),
-    BETTER_AUTH_ACCEPT_METHODS: z
-      .array(
-        z.enum(['post', 'get']),
-        'BETTER_AUTH_ACCEPT_METHODS should be valid http verb.'
-      )
-      .default(['post', 'get'])
+    IMAGE_API: z
+      .url('IMAGE_API should be valid url.')
+      .nonempty('IMAGE_API should not be empty.')
+      .trim()
+      .default('https://api.dicebear.com/10.x/squircles/svg')
       .meta({
         description:
-          'HTTP authentication methods for better-auth, defaults to POST and GET methods.'
+          'An API to assign default images when a new user is created, defaults to https://api.dicebear.com/10.x/squircles/svg'
       }),
-    SESSION_COOKIE_NAME: z
-      .string('SESSION_COOKIE_NAME should be a valid string.')
-      .nonempty('SESSION_COOKIE_NAME should not be empty.')
+    COVER_API: z
+      .url('COVER_API should be valid url.')
+      .nonempty('COVER_API should not be empty.')
+      .trim()
+      .default('https://api.dicebear.com/10.x/waves/svg')
+      .meta({
+        description:
+          'An API to assign default cover images when a new user is created, defaults to https://api.dicebear.com/10.x/waves/svg'
+      }),
+    BETTER_AUTH_SESSION_COOKIE_NAME: z
+      .string('BETTER_AUTH_SESSION_COOKIE_NAME should be a valid string.')
+      .nonempty('BETTER_AUTH_SESSION_COOKIE_NAME should not be empty.')
       .trim()
       .default('session_token')
       .meta({
         description:
           'Name of better-auth session cookie, defaults to session_token.'
       }),
+    SMTP_URL: z
+      .url('SMTP_URL should be a valid url.')
+      .nonempty('SMTP_URL should not be empty.')
+      .trim()
+      .default('smtps://username@gmail.com:password@smtp.gmail.com:465')
+      .meta({
+        description:
+          'Password for SMTP server, ex: smtps://username@domain.com:password@smtp.example.com:465.'
+      }),
     GITHUB_CLIENT_ID: z
       .string('GITHUB_CLIENT_ID should be a valid string.')
       .nonempty('GITHUB_CLIENT_ID should not be empty.')
       .trim()
-      .optional()
+      .default('example123456789')
       .meta({
         description:
-          'OAuth application name to verify with the GitHub provider, ex: Iv1.example123456789.'
+          'OAuth application name to verify with the GitHub provider, defaults to example123456789.'
       }),
     UPLOAD_DIR: z
       .string('UPLOAD_DIR should be a valid string.')
@@ -118,11 +114,17 @@ export const envSchema = z.object(
       .url('BETTER_AUTH_URL should be valid url.')
       .nonempty('BETTER_AUTH_URL should not be empty.')
       .trim()
-      .default('http://localhost:3000')
+      .default('http://localhost:3000/api')
       .meta({
         description:
-          'Server url of better-auth, defaults to http://localhost:3000.'
+          'Server url of better-auth, defaults to http://localhost:3000/api.'
       }),
+    BETTER_AUTH_APPLICATION_NAME: z
+      .string('BETTER_AUTH_APPLICATION_NAME should be a valid string.')
+      .nonempty('BETTER_AUTH_APPLICATION_NAME should not be empty.')
+      .trim()
+      .default('server')
+      .meta({ description: 'Name of the application, defaults to server.' }),
     BETTER_AUTH_SESSION_EXPIRES_IN: z.coerce
       .number(
         'BETTER_AUTH_SESSION_EXPIRES_IN should be a valid number in seconds.'
@@ -132,13 +134,20 @@ export const envSchema = z.object(
         description:
           'Time remaining until automatic logout (seconds), defaults to 1 hour.'
       }),
-    SMTP_URL: z
-      .url('SMTP_URL should be a valid url.')
-      .nonempty('SMTP_URL should not be empty.')
+    BASE_URL: z
+      .url('BASE_URL should be valid url.')
+      .nonempty('BASE_URL should not be empty.')
       .trim()
+      .default('http://localhost:3000/api')
+      .meta({
+        description: 'Base server url, defaults to http://localhost:3000/api.'
+      }),
+    CONFIRM_CANCEL_OFFSET: z.coerce
+      .number('CONFIRM_CANCEL_OFFSET should be a valid number in hours.')
+      .default(5)
       .meta({
         description:
-          'Password for SMTP server, ex: smtps://username@domain.com:password@smtp.example.com:465.'
+          'Time until the appointment can be canelled/confirmed (hours), defaults to 5 hours.'
       }),
     BETTER_AUTH_MAX_PASSWORD_LENGTH: z.coerce
       .number('BETTER_AUTH_MAX_PASSWORD_LENGTH should be a valid number.')
@@ -154,14 +163,6 @@ export const envSchema = z.object(
         description:
           'Minimum number of characters a password should be, defaults to 8.'
       }),
-    BASE_URL: z
-      .url('BASE_URL should be valid url.')
-      .nonempty('BASE_URL should not be empty.')
-      .trim()
-      .default('http://localhost:3000')
-      .meta({
-        description: 'Base server url, defaults to http://localhost:3000.'
-      }),
     NODE_ENV: z
       .enum(
         ['development', 'production', 'test'],
@@ -171,12 +172,6 @@ export const envSchema = z.object(
       .meta({
         description: 'Server running environment, defaults to development.'
       }),
-    APPLICATION_NAME: z
-      .string('APPLICATION_NAME should be a valid string.')
-      .nonempty('APPLICATION_NAME should not be empty.')
-      .trim()
-      .default('server')
-      .meta({ description: 'Name of the application, defaults to server.' }),
     MAX_FILE_SIZE: z.coerce
       .number('MAX_FILE_SIZE should be a valid number in bytes.')
       .default(1 * 1_000 * 1_000)
@@ -190,6 +185,13 @@ export const envSchema = z.object(
       .meta({
         description:
           'Minimum number of bytes for a valid file upload, defaults to 10 KB.'
+      }),
+    UPDATE_OFFSET: z.coerce
+      .number('UPDATE_OFFSET should be a valid number in days.')
+      .default(5)
+      .meta({
+        description:
+          'Days uptil the appointment can be updated, defaults to 5 days.'
       }),
     MAX_PAGE_SIZE: z.coerce
       .number('MAX_PAGE_SIZE should be a valid number.')
@@ -222,4 +224,3 @@ export const envSchema = z.object(
 );
 
 export const env = envSchema.parse(process.env);
-export type Env = z.infer<typeof envSchema>;

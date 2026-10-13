@@ -12,15 +12,16 @@ import {
 } from 'better-auth/plugins';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2';
 import { betterAuth } from 'better-auth';
+import { eq } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 
 import type { Model } from '@/modules/user/model';
 
 import { hasValidAuthMethod, mailer } from '@/lib/util';
 import { permissions } from '@/lib/auth/permissions';
+import { isFileURL, remove } from '@/lib/file';
 import { schema } from '@/lib/db/schema';
 import { ApiError } from '@/lib/error';
-import { remove } from '@/lib/file';
 import { env } from '@/lib/config';
 import { db } from '@/lib/db';
 
@@ -51,7 +52,7 @@ export const auth = betterAuth({
       },
       signUpOnVerification: {
         getTempEmail(phoneNumber) {
-          return `${phoneNumber}@${env.APPLICATION_NAME}`;
+          return `${phoneNumber}@${env.BETTER_AUTH_APPLICATION_NAME}`;
         }
       },
       requireVerification: true
@@ -81,7 +82,9 @@ export const auth = betterAuth({
       impersonationSessionDuration: env.BETTER_AUTH_SESSION_EXPIRES_IN,
       ...permissions
     }),
-    anonymous({ emailDomainName: `guest.${env.APPLICATION_NAME}.com` }),
+    anonymous({
+      emailDomainName: `guest.${env.BETTER_AUTH_APPLICATION_NAME}.com`
+    }),
     multiSession(),
     testUtils(),
     username(),
@@ -94,8 +97,8 @@ export const auth = betterAuth({
           where: { userId: user.id }
         });
 
-        if (profile?.cover) await remove(profile.cover);
-        if (user.image) await remove(user.image);
+        if (isFileURL(profile?.cover)) await remove(profile?.cover);
+        if (isFileURL(user.image)) await remove(user.image);
       },
       enabled: true,
       ...(env.NODE_ENV !== 'test' && {
@@ -109,6 +112,26 @@ export const auth = betterAuth({
       })
     },
     changeEmail: { updateEmailWithoutVerification: true, enabled: true }
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        async after(user) {
+          db.transaction(tx => {
+            tx.update(schema.user)
+              .set({ image: `${env.IMAGE_API}?seed=${user.id}` })
+              .where(eq(schema.user.id, user.id))
+              .run();
+            tx.insert(schema.userProfile)
+              .values({
+                cover: `${env.COVER_API}?seed=${user.id}`,
+                userId: user.id
+              })
+              .run();
+          });
+        }
+      }
+    }
   },
   emailAndPassword: {
     async sendResetPassword({ user, url }) {
@@ -137,9 +160,9 @@ export const auth = betterAuth({
     autoSignInAfterVerification: true
   },
   advanced: {
-    cookies: { session: { name: env.SESSION_COOKIE_NAME } },
+    cookies: { session: { name: env.BETTER_AUTH_SESSION_COOKIE_NAME } },
+    cookiePrefix: env.BETTER_AUTH_APPLICATION_NAME,
     database: { generateId: 'uuid', joins: true },
-    cookiePrefix: env.APPLICATION_NAME,
     disableOriginCheck: true,
     disableCSRFCheck: false
   },
@@ -168,7 +191,8 @@ export const auth = betterAuth({
     }
   },
   database: drizzleAdapter(db, { provider: 'sqlite', schema }),
-  appName: env.APPLICATION_NAME
+  appName: env.BETTER_AUTH_APPLICATION_NAME,
+  baseURL: `${env.BETTER_AUTH_URL}/auth`
 });
 
 export const loadAuthContext = new Elysia({ name: 'AuthContext.Plugin' })
@@ -195,7 +219,7 @@ export const loadAuthContext = new Elysia({ name: 'AuthContext.Plugin' })
   .as('scoped');
 
 export const authRoutes = new Elysia({ name: 'BetterAuth.Routes' }).all(
-  '/api/auth/*',
+  '/auth/*',
   params => {
     if (hasValidAuthMethod(params.request.method))
       return auth.handler(params.request);
