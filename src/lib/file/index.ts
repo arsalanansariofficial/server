@@ -2,16 +2,18 @@ import { extname } from 'node:path';
 
 import type { Schema } from '@/lib/util/schema';
 
-import { isFile } from '@/lib/util';
 import { env } from '@/lib/config';
 
 export async function replace(params: {
   replaceWith?: Schema['fileOrUrl'] | null;
   url?: string | null;
 }) {
-  if (params.replaceWith !== undefined && params.url) await remove(params.url);
-  if (isFile(params.replaceWith)) return await upload(params.replaceWith);
-  return params.replaceWith;
+  const { replaceWith, url } = params;
+
+  if (replaceWith !== undefined && isFileURL(url)) await remove(url);
+  if (isFile(replaceWith)) return await upload(replaceWith);
+
+  return replaceWith;
 }
 
 export async function upload(file: File) {
@@ -24,4 +26,12 @@ export async function remove(url?: string | null) {
   if (!url) return;
   const [, name] = url.split(env.UPLOAD_DIR);
   return await Bun.file(`${env.UPLOAD_DIR}${name}`).delete();
+}
+
+export function isFile(payload?: string | File | null): payload is File {
+  return Boolean(payload && payload instanceof File);
+}
+
+export function isFileURL(url?: string | null) {
+  return url?.startsWith(env.BASE_URL);
 }
